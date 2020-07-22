@@ -2,7 +2,7 @@ import torch
 import cv2
 import random
 import numpy as np
-from metrics import collate_fn
+from metric import collate_fn
 import albumentations
 from albumentations.pytorch.transforms import ToTensorV2  # must import manually because 'pytorch' is not imported in __init__
 
