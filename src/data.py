@@ -1,21 +1,23 @@
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split, StratifiedKFold
+from sklearn.model_selection import StratifiedKFold
 
 
-def process_data(df):
+def process_data(df, subset=1.0):
     bboxes = np.stack(df['bbox'].apply(lambda x: np.fromstring(x[1: -1], sep=',')))
 
     for i, column in enumerate(['x', 'y', 'w', 'h']):
         df[column] = bboxes[:, i]
 
     df = df.drop(columns=['bbox'])
+    df = df.sample(frac=subset).reset_index(drop=True)
+        
     return df
     
     
 def create_folds(df):
     df_folds = df[['image_id']].copy()
-
+    
     # Group the dataframe by image_id (because 1 image_id can appear in multiple rows) and get the bbox_count
     df_folds.loc[:, 'bbox_count'] = 1   # each row corresponds to 1 bbox
     df_folds = df_folds.groupby('image_id').count()

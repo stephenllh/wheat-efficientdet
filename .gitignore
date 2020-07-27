@@ -141,6 +141,8 @@ cython_debug/
 /input
 /models
 /pretrained_models
+/.vscode
+/src/__pycache__
 
 # Data files
 *.csv

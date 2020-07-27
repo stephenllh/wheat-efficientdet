@@ -13,12 +13,13 @@ from utils import seed_everything
 parser = argparse.ArgumentParser(description='Wheat detection with EfficientDet')
 
 # Directories
-parser.add_argument('--root-dir', default='', type=str, help='directory of data')
+parser.add_argument('--root-dir', default='../', type=str, help='directory of data')
 parser.add_argument('--data-dir', default='../input', type=str, help='directory of data')
-parser.add_argument('--model-dir', default='../pretrained_models', type=str, 
-                    help='directory of downloaded efficientnet models')
+parser.add_argument('--model-dir', default='../pretrained_models', type=str, help='directory of downloaded efficientnet models')
+parser.add_argument('--save-dir', default='../', type=str, help='directory of saved models')
 
 # Training fold
+parser.add_argument('--subset', default=1.0, type=float, help='subset of data')
 parser.add_argument('--fold', default=0, type=int, help='fold number')
 
 # Augmentations
@@ -46,13 +47,13 @@ parser.add_argument('--num-workers', default=4, type=int, help='num workers')
 parser.add_argument('--scheduler', default='plateau', type=str, help='scheduler class: choose from ["plateau", "one_cycle"]')
 parser.add_argument('--step-sched', default=False, type=bool, help='use step scheduler or not')
 parser.add_argument('--valid-sched', default=True, type=bool, help='use valid scheduler or not')
-parser.add_argument('--sched-monitor', default='min', type=str, help='the mode argument in valid scheduler')
 parser.add_argument('--sched-verbose', default=False, type=bool, help='verbosity in the scheduler')
 parser.add_argument('--verbose', default=True, type=bool, help='verbosity in the Learner')
 parser.add_argument('--verbose-step', default=1, type=int, help='verbosity step in the Learner')
 parser.add_argument('--debug', default=False, type=bool, help='debug mode or not in Learner')
 
 # Scheduler args: ReduceLROnPlateau
+parser.add_argument('--valid-sched-metric', default='min', type=str, help='the mode argument in valid scheduler')
 parser.add_argument('--lr-reduce-factor', default=0.5, type=float, help='reduce factor in ReduceLROnPlateau')
 parser.add_argument('--patience', default=2, type=int, help='patience only for valid scheduler')
 
@@ -63,6 +64,10 @@ parser.add_argument('--div_factor', default=10, type=int, help='lr reducion fact
 # Seed
 parser.add_argument('--seed', default=42, type=int, help='seed')
 
+# Save model
+parser.add_argument('--saved_model_name', default='model', type=str, help='name of saved model after training')
+
+
 args = parser.parse_args()
 
 #print(args)
@@ -70,8 +75,10 @@ args = parser.parse_args()
 
     
 def run():
+    seed_everything(args.seed)
+    
     df = pd.read_csv(os.path.join(args.data_dir, 'train.csv'))
-    df = process_data(df)
+    df = process_data(df, args.subset)
     df_folds = create_folds(df)
     
     train_image_ids = df_folds[df_folds['fold'] != args.fold].index.values
@@ -100,10 +107,12 @@ def run():
     args.scheduler_class = scheduler_class
     args.scheduler_params = scheduler_params
     
-    
-    learner = Learner(model, base_dir=args.root_dir, hparams=args, debug=args.debug)
+    learner = Learner(model, root_dir=args.root_dir, hparams=args, debug=args.debug)
     learner.fit(train_loader, valid_loader)
-
+    
+    learner.save(f'../models/{args.saved_model_name}.pth')
+    print(f'Model is saved with name of {args.saved_model_name}.pth')
+    
 
 
 if __name__ == '__main__':

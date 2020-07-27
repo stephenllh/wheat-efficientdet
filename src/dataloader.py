@@ -2,7 +2,7 @@ import torch
 import cv2
 import random
 import numpy as np
-from src.utils import collate_fn
+from utils import collate_fn
 import albumentations
 from albumentations.pytorch.transforms import ToTensorV2  # must import manually because 'pytorch' is not imported in __init__
 from torch.utils.data import DataLoader
@@ -29,18 +29,18 @@ class Dataset:
         labels = torch.ones((boxes.shape[0],), dtype=torch.int64)   # there is only one class
         
         target = {
-            'bbox': boxes,
+            'boxes': boxes,
             'labels': labels,
             'image_id': torch.tensor([index])
         }
 
         if self.transforms:
             while True:
-                sample = self.transforms(**{'image': image, 'bboxes': target['bbox'], 'labels': labels})
+                sample = self.transforms(**{'image': image, 'bboxes': target['boxes'], 'labels': labels})
                 if len(sample['bboxes']) > 0:
                     image = sample['image']
-                    target['bbox'] = torch.stack(tuple(map(torch.tensor, zip(*sample['bboxes'])))).permute(1, 0)
-                    target['bbox'][:, [0,1,2,3]] = target['bbox'][:, [1,0,3,2]]  #yxyx: be warning
+                    target['boxes'] = torch.stack(tuple(map(torch.tensor, zip(*sample['bboxes'])))).permute(1, 0)
+                    target['boxes'][:, [0,1,2,3]] = target['boxes'][:, [1,0,3,2]]  #yxyx: be warning
                     break
 
         return image, target, image_id
