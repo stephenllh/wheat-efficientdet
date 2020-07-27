@@ -2,22 +2,21 @@ import os
 from datetime import datetime
 import pandas as pd
 import argparse
-from src.data import process_data, create_folds
-from src.dataloader import get_train_loader, get_valid_loader
-from src.transforms import get_train_augs, get_valid_augs
-from src.model import get_model
-from src.engine import get_scheduler, Learner
+from data import process_data, create_folds
+from dataloader import get_train_loader, get_valid_loader
+from transforms import get_train_augs, get_valid_augs
+from model import get_model
+from engine import get_scheduler, Learner
+from utils import seed_everything
 
 
 parser = argparse.ArgumentParser(description='Wheat detection with EfficientDet')
 
 # Directories
 parser.add_argument('--root-dir', default='', type=str, help='directory of data')
-parser.add_argument('--data-dir', default='input', type=str, help='directory of data')
-parser.add_argument('--model-dir', default='efficientdet_models', type=str, 
+parser.add_argument('--data-dir', default='../input', type=str, help='directory of data')
+parser.add_argument('--model-dir', default='../pretrained_models', type=str, 
                     help='directory of downloaded efficientnet models')
-parser.add_argument('--img-dir', default='input', type=str, 
-                    help='directory of images')
 
 # Training fold
 parser.add_argument('--fold', default=0, type=int, help='fold number')
@@ -60,6 +59,9 @@ parser.add_argument('--patience', default=2, type=int, help='patience only for v
 # Scheduler args: OneCycle
 parser.add_argument('--pct_start', default=0.3, type=float, help='pct of total no. iterations to start annealing')
 parser.add_argument('--div_factor', default=10, type=int, help='lr reducion factor at the beginning')
+
+# Seed
+parser.add_argument('--seed', default=42, type=int, help='seed')
 
 args = parser.parse_args()
 
