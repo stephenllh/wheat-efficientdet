@@ -1,10 +1,11 @@
 import os
 from datetime import datetime
+import pandas as pd
 import argparse
 from src.data import process_data, create_folds
 from src.dataloader import get_train_loader, get_valid_loader
-from src.transform import get_train_augs, get_valid_augs
-from src.model import get_net
+from src.transforms import get_train_augs, get_valid_augs
+from src.model import get_model
 from src.engine import get_scheduler, Learner
 
 
@@ -15,6 +16,8 @@ parser.add_argument('--root-dir', default='', type=str, help='directory of data'
 parser.add_argument('--data-dir', default='input', type=str, help='directory of data')
 parser.add_argument('--model-dir', default='efficientdet_models', type=str, 
                     help='directory of downloaded efficientnet models')
+parser.add_argument('--img-dir', default='input', type=str, 
+                    help='directory of images')
 
 # Training fold
 parser.add_argument('--fold', default=0, type=int, help='fold number')
@@ -60,8 +63,8 @@ parser.add_argument('--div_factor', default=10, type=int, help='lr reducion fact
 
 args = parser.parse_args()
 
-for arg in args:
-    print(arg, '\n')
+#print(args)
+
 
     
 def run():
@@ -72,13 +75,13 @@ def run():
     train_image_ids = df_folds[df_folds['fold'] != args.fold].index.values
     valid_image_ids = df_folds[df_folds['fold'] == args.fold].index.values
     
-    train_loader = get_train_loader(df, train_image_ids, transforms=get_train_augs, do_cutmix=args.cutmix, 
+    train_loader = get_train_loader(args.data_dir, df, train_image_ids, transforms=get_train_augs(args), do_cutmix=args.cutmix, 
                                     batch_size=args.bs, num_workers=args.num_workers)
     
-    valid_loader = get_valid_loader(df, valid_image_ids, transforms=get_train_augs, 
+    valid_loader = get_valid_loader(args.data_dir, df, valid_image_ids, transforms=get_valid_augs(args), 
                                     batch_size=args.bs, num_workers=args.num_workers)
     
-    model = get_net(args.model_variant, model_dir=args.model_dir)
+    model = get_model(args.model_variant, model_dir=args.model_dir).cuda()
     
     # Get scheduler
     scheduler_class, scheduler_params = get_scheduler(args)
@@ -96,7 +99,7 @@ def run():
     args.scheduler_params = scheduler_params
     
     
-    learner = Learner(model, base_dir=args.base_dir, hparams=args, debug=args.debug)
+    learner = Learner(model, base_dir=args.root_dir, hparams=args, debug=args.debug)
     learner.fit(train_loader, valid_loader)
 
 

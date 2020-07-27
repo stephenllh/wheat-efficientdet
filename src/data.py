@@ -4,7 +4,6 @@ from sklearn.model_selection import train_test_split, StratifiedKFold
 
 
 def process_data(df):
-    df = pd.read_csv('train.csv')
     bboxes = np.stack(df['bbox'].apply(lambda x: np.fromstring(x[1: -1], sep=',')))
 
     for i, column in enumerate(['x', 'y', 'w', 'h']):
@@ -22,7 +21,7 @@ def create_folds(df):
     df_folds = df_folds.groupby('image_id').count()
 
     # Match the source to each image_id
-    df_folds['source'] = df[['image_id', 'source']].groupby('image_id').first()['source']  # max() achieves the same
+    df_folds['source'] = df[['image_id', 'source']].groupby('image_id').first()['source']  # min() or max() achieves the same
 
     # Create stratify group 
     df_folds['stratify_group'] = np.char.add(
@@ -37,3 +36,5 @@ def create_folds(df):
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     for fold_idx, (train_idx, valid_idx) in enumerate(skf.split(X=df_folds.index, y=df_folds['stratify_group'])):
         df_folds.loc[df_folds.iloc[valid_idx].index, 'fold'] = fold_idx
+
+    return df_folds

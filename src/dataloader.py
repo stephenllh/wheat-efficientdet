@@ -2,15 +2,17 @@ import torch
 import cv2
 import random
 import numpy as np
-from metric import collate_fn
+from src.utils import collate_fn
 import albumentations
 from albumentations.pytorch.transforms import ToTensorV2  # must import manually because 'pytorch' is not imported in __init__
-
+from torch.utils.data import DataLoader
+from torch.utils.data.sampler import SequentialSampler, RandomSampler
 
 
 class Dataset:
     
-    def __init__(self, df, image_ids, transforms=None, do_cutmix=True, test=False):
+    def __init__(self, data_path, df, image_ids, transforms=None, do_cutmix=True, test=False):
+        self.data_path = data_path
         self.df = df
         self.image_ids = image_ids
         self.transforms = transforms
@@ -28,7 +30,7 @@ class Dataset:
         
         target = {
             'bbox': boxes,
-            'cls': cls,
+            'labels': labels,
             'image_id': torch.tensor([index])
         }
 
@@ -52,7 +54,7 @@ class Dataset:
 
         # process images into RGB and rescale to 0-1
         image_id = self.image_ids[index]
-        image = cv2.imread(f'{DATA_PATH}/train/{image_id}.jpg', cv2.IMREAD_COLOR)
+        image = cv2.imread(f'{self.data_path}/train/{image_id}.jpg', cv2.IMREAD_COLOR)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
         image /= 255.0
 
@@ -126,14 +128,12 @@ class Dataset:
     
     
 
-def get_train_loader(df, image_ids, transforms, do_cutmix, batch_size, num_workers):
-    train_dataset = Dataset(df, image_ids, transforms=transforms, do_cutmix=do_cutmix, test=False)
-    sampler = RandomSampler(dataset) 
+def get_train_loader(data_path, df, image_ids, transforms, do_cutmix, batch_size, num_workers):
+    train_dataset = Dataset(data_path, df, image_ids, transforms=transforms, do_cutmix=do_cutmix, test=False)
     dataloader = DataLoader(
-        dataset,
+        train_dataset,
         batch_size=batch_size,
-        shuffle=True,
-        sampler=sampler,
+        sampler=RandomSampler(train_dataset),
         pin_memory=False,
         drop_last=True,
         num_workers=num_workers,
@@ -143,14 +143,13 @@ def get_train_loader(df, image_ids, transforms, do_cutmix, batch_size, num_worke
     return dataloader
 
 
-def get_valid_loader(df, image_ids, transforms, batch_size, num_workers):
-    valid_dataset = Dataset(df, image_ids, transforms=transforms, test=True)
-    sampler = SequentialSampler(valid_dataset)
+def get_valid_loader(data_path, df, image_ids, transforms, batch_size, num_workers):
+    valid_dataset = Dataset(data_path, df, image_ids, transforms=transforms, test=True)
     dataloader = DataLoader(
-        dataset,
+        valid_dataset,
         batch_size=batch_size,
         shuffle=False,
-        sampler=sampler,
+        sampler=SequentialSampler(valid_dataset),
         pin_memory=False,
         drop_last=True,
         num_workers=num_workers,

@@ -1,7 +1,8 @@
 from effdet import get_efficientdet_config, EfficientDet, DetBenchTrain
 from effdet.efficientdet import HeadNet
+import torch
 
-def get_net(variant, model_dir, pretrained=True):
+def get_model(variant, model_dir, pretrained=True):
 
     config = get_efficientdet_config(f'tf_efficientdet_{variant}')
     net = EfficientDet(config, pretrained_backbone=False)

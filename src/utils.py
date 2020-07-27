@@ -40,6 +40,3 @@ def view_dataset(dataset, idx):
     
 def collate_fn(batch):
     return tuple(zip(*batch))
-
-if __name__ == '__main__':
-    print('Done')

@@ -9,6 +9,7 @@ import ast
 import random
 import time
 from datetime import datetime
+from src.utils import AverageMeter
 
 import torch
 from torch import nn
@@ -88,7 +89,7 @@ class Learner:
             
             images = torch.stack(images).to('cuda').float()
             boxes  = [target['bbox'].to('cuda').float() for target in targets]
-            labels = [target['cls'].to('cuda').float() for target in targets]
+            labels = [target['labels'].to('cuda').float() for target in targets]
 
             loss, _, _ = self.model(images, boxes, labels)
             

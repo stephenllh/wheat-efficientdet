@@ -22,9 +22,9 @@ def get_train_augs(hparams: dict):
         ToTensorV2(p=1.0)
     ]
     
-    bbox_params = {format='pascal_voc', min_area=0, min_visibility=0, label_fields=['labels']}
+    bbox_params = dict(format='pascal_voc', min_area=0, min_visibility=0, label_fields=['labels'])
     
-    return albumentations.Compose(aug_list, p=1.0, bbox_params=**bbox_params)
+    return albumentations.Compose(aug_list, p=1.0, bbox_params=albumentations.BboxParams(**bbox_params))
 
 
 def get_valid_augs(hparams: dict):
@@ -33,6 +33,6 @@ def get_valid_augs(hparams: dict):
         albumentations.Resize(height=hparams.img_size, width=hparams.img_size, p=1.0),
         ToTensorV2(p=1.0),
     ]
-    bbox_params = {format='pascal_voc', min_area=0, min_visibility=0, label_fields=['labels']}
+    bbox_params = dict(format='pascal_voc', min_area=0, min_visibility=0, label_fields=['labels'])
     
-    return albumentations.Compose(aug_list, p=1.0, bbox_params=**bbox_params)
+    return albumentations.Compose(aug_list, p=1.0, bbox_params=albumentations.BboxParams(**bbox_params))
