@@ -1,1 +1,1 @@
-# wheat_efficientdet
+## EfficientDet for Global Wheat Detection competition
