@@ -10,8 +10,9 @@ import ast
 import random
 import time
 from datetime import datetime
-
-from utils import AverageMeter
+from model import load_model_for_eval
+from utils import AverageMeter, Zone
+from metrics import calculate_final_score
 
 import torch
 from torch import nn
@@ -19,56 +20,68 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import SequentialSampler, RandomSampler
 from torch.optim import lr_scheduler
+from torch.cuda.amp import autocast, GradScaler
 import torchvision
 
 
 class Learner:
-    def __init__(self, model, hparams, debug=False):
+    def __init__(self, model, scheduler_class, scheduler_params, hparams):
         self.model = model
-        self.root_dir = hparams.root_dir
-        self.save_dir = hparams.save_dir
         self.hparams = hparams
-        self.debug = debug
+        self.debug = hparams.debug
+        self.root_dir = hparams.root_dir
+        self.save_dir = f'{hparams.save_dir}/run_{datetime.now(Zone(+8, False, "GMT")).strftime(f"%Y-%m-%d_%H%M")}'
+        self.log_dir = self.save_dir
         self.epoch = 0
-        self.log_path = f'{self.root_dir}/log.txt'
         self.best_valid_loss = 1e5
+        self.accumulation_steps = hparams.eff_bs // hparams.bs
 
         param_optimizer = list(self.model.named_parameters())
         no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
         optimizer_grouped_parameters = [
-            {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay': 0.001},
+            {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay': hparams.wd},
             {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
         ] 
 
-        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.hparams.lr)
-        self.scheduler = self.hparams.scheduler_class(self.optimizer, **self.hparams.scheduler_params)
+        self.optimizer = torch.optim.AdamW(optimizer_grouped_parameters, lr=self.hparams.lr)
+        self.scheduler = scheduler_class(self.optimizer, **scheduler_params)
+        
         self.log('Learner prepared.')
+        with open(f'{self.log_dir}/log.txt', 'a+') as logger:
+            logger.write(f'{self.hparams}\n')
 
     def fit(self, train_loader, valid_loader):
         
-        with open(self.log_path, 'a+') as logger:
-            logger.write(f'{self.hparams}\n')
+        # with open(self.log_dir, 'a+') as logger:
+        #     logger.write(f'{self.hparams}\n')
+        
+        self.scaler = GradScaler()
             
         for epoch in range(self.hparams.epoch):
-            self.log(f'\nEpoch {epoch}')
+             
             lr = self.optimizer.param_groups[0]['lr']
-            timestamp = datetime.utcnow().strftime(f'%Y-%m-%d_%H%M')
-            self.log(f'\n{timestamp}\nLearning rate: {lr}')
-
+            self.log(f'\n{datetime.now(Zone(+8, False, 'GMT')).strftime(f'%d-%m-%Y %H:%M')}')
+            self.log(f'\nEpoch {epoch+1}/{self.hparams.epoch}')
+            self.log(f'\nInitial learning rate for epoch {epoch}: {lr:.4e}')
+            
+            # Training loop
             t = time.time()
             train_loss = self.train(train_loader)
-            self.log(f'\n[RESULT]: Training loss: {train_loss.avg:.5f}, Time: {(time.time() - t):.5f}')
+            tt = time.time() - t
+            self.log(f'\n[RESULT]: Training loss: {train_loss.avg:.5f}, Time taken: {tt//60}m{tt%60:02d}s')
             self.save('last-cp.bin')
-
+            
+            # Validation loop
             t = time.time()
-            valid_loss = self.validation(valid_loader)
-            self.log(f'\n[RESULT]: Validation loss: {valid_loss.avg:.5f}, Time: {(time.time() - t):.5f}')
+            valid_loss, iou = self.validation(valid_loader)
+            tt = time.time() - t
+            self.log(f'\n[RESULT]: Validation loss: {valid_loss.avg:.5f}, IOU: {iou:.5f}, Time taken: {tt//60}m{tt%60:02d}s')
             
             if valid_loss.avg < self.best_valid_loss:
                 self.best_valid_loss = valid_loss.avg
                 self.model.eval()
-                self.save(f'cp-{str(epoch).zfill(3)}epoch.bin')
-                for path in sorted(glob(f'{self.hparams.root_dir}/cp-*epoch.bin'))[:-3]:
+                self.save(f'ckpt-e{str(epoch).zfill(3)}.bin')
+                for path in sorted(glob(f'{self.hparams.root_dir}/ckpt-e*.bin'))[:-3]:
                     os.remove(path)
 
             if self.hparams.valid_sched:
@@ -82,40 +95,62 @@ class Learner:
 
 
     def train(self, train_loader):
+        
+        if self.hparams.continue_train:
+            self.load(self.hparams.checkpoint_name, weights_only=self.hparams.weights_only)
+            
         self.model.train()
+        
         train_loss = AverageMeter()
         t = time.time()
         for step, (images, targets, image_ids) in enumerate(train_loader):
-            
             if self.hparams.verbose:
                 if step % self.hparams.verbose_step == 0:
-                    print(f'\rTraining step {step+1}/{len(train_loader)}, ' + \
-                          f'Training loss: {train_loss.avg:.5f}, ' + \
-                          f'Time: {(time.time() - t):.5f}', end='')
+                    lr = self.optimizer.param_groups[0]['lr']
+                    print(
+                        f'\rTraining step {step+1}/{len(train_loader)}, ' + \
+                        f'Learning rate {lr:.4e}, ' + \
+                        f'Training loss: {train_loss.avg:.5f}, ' + \
+                        f'Time taken: {(time.time() - t):.1f}s', end=''
+                    )
             
             images = torch.stack(images).to('cuda').float()
             boxes  = [target['boxes'].to('cuda').float() for target in targets]
             labels = [target['labels'].to('cuda').float() for target in targets]
-
-            loss, _, _ = self.model(images, boxes, labels)
             
-            loss.backward()
-            self.optimizer.step()
-            self.optimizer.zero_grad()
-
-            if self.hparams.step_sched:
-                self.scheduler.step()
+            if self.hparams.fp16:
+                with autocast():
+                    loss, _, _ = self.model(images, boxes, labels)
+                    loss /= self.accumulation_steps
+                self.scaler.scale(loss).backward()
+                if (step + 1) % self.accumulation_steps == 0:
+                    self.scaler.step(self.optimizer)
+                    self.scaler.update()
+                    # self.scaler.unscale_(self.optimizer)
+                    self.optimizer.zero_grad()
+                        
+                if self.hparams.step_sched:
+                    self.scheduler.step()
+                    
+            else:
+                loss, _, _ = self.model(images, boxes, labels)
+                loss.backward()
+                self.optimizer.step()
+                if self.hparams.step_sched:
+                    self.scheduler.step()     
 
             batch_size = images.shape[0]
-            train_loss.update(loss.detach().item(), batch_size)
+            train_loss.update(loss.detach().item() * self.accumulation_steps, batch_size)
 
             if self.debug:
-                break
+                self.save('last-cp.bin')
+                break 
 
         return train_loss
 
 
     def validation(self, val_loader):  # TODO: add IOU
+        
         self.model.eval()
         valid_loss = AverageMeter()
         t = time.time()
@@ -125,8 +160,9 @@ class Learner:
                 if step % self.hparams.verbose_step == 0:
                     print(f'\rValidation step {step+1}/{len(val_loader)}, ' + \
                           f'Validation loss: {valid_loss.avg:.5f}, ' + \
-                          f'Time: {(time.time() - t):.5f}', end='')
-                    
+                          f'Time taken: {(time.time() - t):.1f}s', end='')
+                 
+            all_predictions = []   
             with torch.no_grad():
                 images = torch.stack(images).to('cuda').float()
                 boxes = [target['boxes'].to('cuda').float() for target in targets]
@@ -135,14 +171,32 @@ class Learner:
                 loss, _, _ = self.model(images, boxes, labels)
                 batch_size = images.shape[0]
                 valid_loss.update(loss.detach().item(), batch_size)
+                
+                # Calculate IOU
+                eval_model = load_model_for_eval(os.path.join(self.save_dir, 'last-cp.bin'), variant=self.hparams.model_variant)
+                preds = eval_model(images, torch.tensor([1]*images.shape[0]).float().cuda())
+                for i in range(images.shape[0]):
+                    boxes = preds[i].detach().cpu().numpy()[:,:4]    
+                    scores = preds[i].detach().cpu().numpy()[:,4]
+                    boxes[:, 2] = boxes[:, 2] + boxes[:, 0]
+                    boxes[:, 3] = boxes[:, 3] + boxes[:, 1]
+                    all_predictions.append({
+                        'pred_boxes': (boxes*2).clip(min=0, max=1023).astype(int),
+                        'scores': scores,
+                        'gt_boxes': (targets[i]['boxes'].cpu().numpy()*2).clip(min=0, max=1023).astype(int),
+                        'image_id': image_ids[i],
+                    })
+                best_final_score, best_score_threshold = 0, 0
+                for score_threshold in np.arange(0, 1, 0.01):
+                    final_score = calculate_final_score(all_predictions, score_threshold)
+                    if final_score > best_final_score:
+                        best_final_score = final_score
+                        best_score_threshold = score_threshold
 
-        return valid_loss
+        return valid_loss, best_final_score
 
 
     def save(self, name):
-        
-        if not os.path.exists(f'{self.save_dir}/models'):
-            os.makedirs(f'{self.save_dir}/models')
         
         self.model.eval()
         torch.save({
@@ -151,30 +205,34 @@ class Learner:
             'scheduler_state_dict': self.scheduler.state_dict(),
             'best_valid_loss': self.best_valid_loss,
             'epoch': self.epoch,
-        }, os.path.join(self.save_dir, 'models', name))
+        }, os.path.join(self.save_dir, name))
       
 
-    def load(self, name):
-        
-        checkpoint = torch.load(os.path.join(self.save_dir, 'models', name))
-        
+    def load(self, name, weights_only):
+
+        checkpoint = torch.load(os.path.join(self.save_dir, name))
         self.model.model.load_state_dict(checkpoint['model_state_dict'])
-        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-        self.best_valid_loss = checkpoint['best_valid_loss']
-        self.epoch = checkpoint['epoch'] + 1
         
+        if weights_only:
+            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+            self.best_valid_loss = checkpoint['best_valid_loss']
+            self.epoch = checkpoint['epoch'] + 1
+    
 
     def log(self, message):
+        
+        if not os.path.exists(self.log_dir):
+            os.makedirs(self.log_dir)
+        
         if self.hparams.verbose:
             print(message)
-        with open(self.log_path, 'a+') as logger:
-            logger.write(f'{self.hparams}\n')
+            
+        with open(f'{self.log_dir}/log.txt', 'a+') as logger:
             logger.write(f'{message}\n')
             
-            
-            
-def get_scheduler(hparams: dict, *args):
+               
+def get_scheduler(hparams: dict):
     
     if hparams.scheduler == 'plateau':
         scheduler_class = lr_scheduler.ReduceLROnPlateau
@@ -189,19 +247,22 @@ def get_scheduler(hparams: dict, *args):
             min_lr=1e-8,
             eps=1e-08
         )
-        
+        hparams.valid_sched = True
+        hparams.step_sched = False
         
     elif hparams.scheduler == 'one_cycle':
         scheduler_class = lr_scheduler.OneCycleLR
         scheduler_params = dict(
             max_lr=hparams.lr, 
-            epochs=hparams.epochs, 
-            steps_per_epoch=steps_per_epoch, 
+            epochs=hparams.epoch, 
+            steps_per_epoch=hparams.steps_per_epoch,
             pct_start=hparams.pct_start, 
             anneal_strategy='cos', 
             cycle_momentum=True, 
             div_factor=hparams.div_factor, 
         )
+        hparams.step_sched = True
+        hparams.valid_sched = False
 
     return scheduler_class, scheduler_params
         

@@ -23,7 +23,7 @@ def create_folds(df):
     df_folds = df_folds.groupby('image_id').count()
 
     # Match the source to each image_id
-    df_folds['source'] = df[['image_id', 'source']].groupby('image_id').first()['source']  # min() or max() achieves the same
+    df_folds['source'] = df[['image_id', 'source']].groupby('image_id').first()['source']  # besides first(), min() or max() achieves the same
 
     # Create stratify group 
     df_folds['stratify_group'] = np.char.add(

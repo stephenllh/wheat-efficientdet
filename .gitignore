@@ -149,3 +149,5 @@ cython_debug/
 *.h5
 *.pkl
 *.pth
+*.bin
+*.pyc

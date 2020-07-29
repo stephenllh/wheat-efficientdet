@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import random
 import os
+from datetime import datetime, tzinfo, timedelta
 
 
 class AverageMeter:
@@ -52,3 +53,46 @@ def seed_everything(seed):
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = True
+    
+
+def show_result(sample_id, preds, gt_boxes):
+    sample = cv2.imread(f'{TRAIN_ROOT_PATH}/{sample_id}.jpg', cv2.IMREAD_COLOR)
+    sample = cv2.cvtColor(sample, cv2.COLOR_BGR2RGB)
+
+    fig, ax = plt.subplots(1, 1, figsize=(16, 8))
+
+    for pred_box in preds:
+        cv2.rectangle(
+            sample,
+            (pred_box[0], pred_box[1]),
+            (pred_box[2], pred_box[3]),
+            (220, 0, 0), 2
+        )
+
+    for gt_box in gt_boxes:    
+        cv2.rectangle(
+            sample,
+            (gt_box[0], gt_box[1]),
+            (gt_box[2], gt_box[3]),
+            (0, 0, 220), 2
+        )
+
+    ax.set_axis_off()
+    ax.imshow(sample)
+    ax.set_title("RED: Predicted | BLUE - Ground-truth")
+    
+
+class Zone(tzinfo):
+    def __init__(self, offset, isdst, name):
+        self.offset = offset
+        self.isdst = isdst
+        self.name = name
+
+    def utcoffset(self, dt):
+        return timedelta(hours=self.offset) + self.dst(dt)
+
+    def dst(self, dt):
+        return timedelta(hours=1) if self.isdst else timedelta(0)
+
+    def tzname(self,dt):
+         return self.name

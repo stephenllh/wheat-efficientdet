@@ -1,5 +1,7 @@
 import os
 from datetime import datetime
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 import pandas as pd
 import argparse
 from data import process_data, create_folds
@@ -16,7 +18,8 @@ parser = argparse.ArgumentParser(description='Wheat detection with EfficientDet'
 parser.add_argument('--root-dir', default='../', type=str, help='directory of data')
 parser.add_argument('--data-dir', default='../input', type=str, help='directory of data')
 parser.add_argument('--model-dir', default='../pretrained_models', type=str, help='directory of downloaded efficientnet models')
-parser.add_argument('--save-dir', default='../', type=str, help='directory of saved models')
+parser.add_argument('--save-dir', default='../models', type=str, help='directory of saved models')
+parser.add_argument('--load-dir', default='../models', type=str, help='directory of saved models')
 
 # Training fold
 parser.add_argument('--subset', default=1.0, type=float, help='subset of data')
@@ -35,18 +38,19 @@ parser.add_argument('--cutout', default=0.5, type=float, help='proba of cutout')
 parser.add_argument('--cutmix', default=True, type=bool, help='do cutmix in Dataset or not')
 
 # Model variant selection
-parser.add_argument('--model-variant', default='d5', type=str, help='model variant: d0 to d7')
+parser.add_argument('--model-variant', '-m', required=True, type=str, help='model variant: d0 to d7')
 
 # Training
 parser.add_argument('--epoch', '-e', type=int, required=True, help='number of epochs')
-parser.add_argument('--lr', default=2e-4, type=float, help='learning rate')
+parser.add_argument('--lr', default=2e-4, type=float, help='(max) learning rate')
 parser.add_argument('--bs', default=4, type=int, help='batch size')
+parser.add_argument('--eff_bs', default=64, type=int, help='effective batch size for gradient accumulation')
+parser.add_argument('--wd', default=1e-3, type=float, help='weight decay')
 parser.add_argument('--num-workers', default=4, type=int, help='num workers')
+parser.add_argument('--fp16', default=True, type=bool, help='use fp16 or not')
 
 # Scheduler
 parser.add_argument('--scheduler', default='plateau', type=str, help='scheduler class: choose from ["plateau", "one_cycle"]')
-parser.add_argument('--step-sched', default=False, type=bool, help='use step scheduler or not')
-parser.add_argument('--valid-sched', default=True, type=bool, help='use valid scheduler or not')
 parser.add_argument('--sched-verbose', default=False, type=bool, help='verbosity in the scheduler')
 parser.add_argument('--verbose', default=True, type=bool, help='verbosity in the Learner')
 parser.add_argument('--verbose-step', default=1, type=int, help='verbosity step in the Learner')
@@ -65,13 +69,17 @@ parser.add_argument('--div_factor', default=10, type=int, help='lr reducion fact
 parser.add_argument('--seed', default=42, type=int, help='seed')
 
 # Save model
-parser.add_argument('--saved_model_name', default='model', type=str, help='name of saved model after training')
+parser.add_argument('--save-name', default='model', type=str, help='name of saved model after training')
 
+# Load model
+parser.add_argument('--load-name', default='model', type=str, help='name of loaded model')
+parser.add_argument('--weights-only', default=True, type=bool, help='True: use as transfer learning. False: continue from checkpoint.')
+parser.add_argument('--continue-train', default=False, type=bool, help='Continue from saved model or not')
+
+# Misc
+parser.add_argument('--nb', default=False, type=bool, help='for tqdm')
 
 args = parser.parse_args()
-
-#print(args)
-
 
     
 def run():
@@ -92,28 +100,16 @@ def run():
     
     model = get_model(args.model_variant, model_dir=args.model_dir).cuda()
     
-    # Get scheduler
-    scheduler_class, scheduler_params = get_scheduler(args)
-    args.scheduler_class = scheduler_class
-    args.scheduler_params = scheduler_params
-    
     if args.scheduler == 'one_cycle':
-        steps_per_epoch = len(train_image_ids) // args.bs
-        scheduler_class, scheduler_params = get_scheduler(args, steps_per_epoch)
+        args.steps_per_epoch = len(train_image_ids) // args.bs
+        scheduler_class, scheduler_params = get_scheduler(args)
         
     else: 
         scheduler_class, scheduler_params = get_scheduler(args)
-        
-    args.scheduler_class = scheduler_class
-    args.scheduler_params = scheduler_params
     
-    learner = Learner(model, root_dir=args.root_dir, hparams=args, debug=args.debug)
+    learner = Learner(model, scheduler_class, scheduler_params, hparams=args)
     learner.fit(train_loader, valid_loader)
     
-    learner.save(f'../models/{args.saved_model_name}.pth')
-    print(f'Model is saved with name of {args.saved_model_name}.pth')
-    
-
 
 if __name__ == '__main__':
     run()

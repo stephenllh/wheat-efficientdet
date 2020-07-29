@@ -1,6 +1,8 @@
-from effdet import get_efficientdet_config, EfficientDet, DetBenchTrain
+from effdet import get_efficientdet_config, EfficientDet, DetBenchTrain, DetBenchEval
 from effdet.efficientdet import HeadNet
 import torch
+import gc
+
 
 def get_model(variant, model_dir, pretrained=True):
 
@@ -28,3 +30,23 @@ def get_model(variant, model_dir, pretrained=True):
         net.class_net = HeadNet(config, num_outputs=config.num_classes, norm_kwargs=dict(eps=.001, momentum=.01))
 
     return DetBenchTrain(net, config)
+
+
+def load_model_for_eval(checkpoint_path, variant):
+    config = get_efficientdet_config(f'tf_efficientdet_{variant}')
+    net = EfficientDet(config, pretrained_backbone=False)
+
+    config.num_classes = 1
+    config.image_size = 512
+    net.class_net = HeadNet(config, num_outputs=config.num_classes, norm_kwargs=dict(eps=.001, momentum=.01))
+
+    checkpoint = torch.load(checkpoint_path)    
+    net.load_state_dict(checkpoint['model_state_dict'])
+
+    del checkpoint
+    gc.collect()
+
+    net = DetBenchEval(net, config)
+    net.eval();
+    
+    return net.cuda()

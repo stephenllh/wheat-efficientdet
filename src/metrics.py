@@ -12,6 +12,7 @@ from typing import List, Union, Tuple
 
 @jit(nopython=True)
 def calculate_iou(gt, pr, form='pascal_voc') -> float:
+    
     """Calculates the Intersection over Union.
 
     Args:
@@ -23,6 +24,7 @@ def calculate_iou(gt, pr, form='pascal_voc') -> float:
     Returns:
         (float) Intersection over union (0.0 <= iou <= 1.0)
     """
+    
     if form == 'coco':
         gt = gt.copy()
         pr = pr.copy()
@@ -57,9 +59,10 @@ def calculate_iou(gt, pr, form='pascal_voc') -> float:
 
 @jit(nopython=True)
 def find_best_match(gts, pred, pred_idx, threshold = 0.5, form = 'pascal_voc', ious=None) -> int:
-    """Returns the index of the 'best match' between the
-    ground-truth boxes and the prediction. The 'best match'
-    is the highest IoU. (0.0 IoUs are ignored).
+    
+    """
+    Returns the index of the 'best match' between the ground-truth boxes and the prediction. 
+    The 'best match' is the highest IoU. (0.0 IoUs are ignored).
 
     Args:
         gts: (List[List[Union[int, float]]]) Coordinates of the available ground-truth boxes
@@ -72,6 +75,7 @@ def find_best_match(gts, pred, pred_idx, threshold = 0.5, form = 'pascal_voc', i
     Return:
         (int) Index of the best match GT box (-1 if no match above threshold)
     """
+    
     best_match_iou = -np.inf
     best_match_idx = -1
 
@@ -99,7 +103,8 @@ def find_best_match(gts, pred, pred_idx, threshold = 0.5, form = 'pascal_voc', i
     return best_match_idx
 
 @jit(nopython=True)
-def calculate_precision(gts, preds, threshold = 0.5, form = 'coco', ious=None) -> float:
+def calculate_precision(gts, preds, threshold=0.5, form = 'coco', ious=None) -> float:
+    
     """Calculates precision for GT - prediction pairs at one threshold.
 
     Args:
@@ -113,6 +118,7 @@ def calculate_precision(gts, preds, threshold = 0.5, form = 'coco', ious=None) -
     Return:
         (float) Precision
     """
+    
     n = len(preds)
     tp = 0
     fp = 0
@@ -158,7 +164,6 @@ def calculate_image_precision(gts, preds, thresholds = (0.5, ), form = 'coco') -
     image_precision = 0.0
     
     ious = np.ones((len(gts), len(preds))) * -1
-    # ious = None
 
     for threshold in thresholds:
         precision_at_threshold = calculate_precision(gts.copy(), preds, threshold=threshold,
@@ -167,34 +172,26 @@ def calculate_image_precision(gts, preds, thresholds = (0.5, ), form = 'coco') -
 
     return image_precision
 
-def show_result(sample_id, preds, gt_boxes):
-    sample = cv2.imread(f'{TRAIN_ROOT_PATH}/{sample_id}.jpg', cv2.IMREAD_COLOR)
-    sample = cv2.cvtColor(sample, cv2.COLOR_BGR2RGB)
 
-    fig, ax = plt.subplots(1, 1, figsize=(16, 8))
+def calculate_final_score(all_predictions, score_threshold):
+    final_scores = []
+    for i in range(len(all_predictions)):
+        gt_boxes = all_predictions[i]['gt_boxes'].copy()
+        pred_boxes = all_predictions[i]['pred_boxes'].copy()
+        scores = all_predictions[i]['scores'].copy()
+        image_id = all_predictions[i]['image_id']
 
-    for pred_box in preds:
-        cv2.rectangle(
-            sample,
-            (pred_box[0], pred_box[1]),
-            (pred_box[2], pred_box[3]),
-            (220, 0, 0), 2
-        )
+        indexes = np.where(scores>score_threshold)
+        pred_boxes = pred_boxes[indexes]
+        scores = scores[indexes]
+        
+        iou_thresholds = numba.typed.List()
+        for x in [0.5, 0.55, 0.6, 0.65, 0.7, 0.75]:   # these thresholds are for this competition only!
+            iou_thresholds.append(x)
 
-    for gt_box in gt_boxes:    
-        cv2.rectangle(
-            sample,
-            (gt_box[0], gt_box[1]),
-            (gt_box[2], gt_box[3]),
-            (0, 0, 220), 2
-        )
+        image_precision = calculate_image_precision(gt_boxes, pred_boxes, thresholds=iou_thresholds, form='pascal_voc')
+        final_scores.append(image_precision)
 
-    ax.set_axis_off()
-    ax.imshow(sample)
-    ax.set_title("RED: Predicted | BLUE - Ground-truth")
-    
-# Numba typed list!
-iou_thresholds = numba.typed.List()
+    return np.mean(final_scores)
 
-for x in [0.5, 0.55, 0.6, 0.65, 0.7, 0.75]:
-    iou_thresholds.append(x)
+

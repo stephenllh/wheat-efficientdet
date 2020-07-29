@@ -13,8 +13,3 @@ mkdir wheat_efficientdet/pretrained_models
 unzip -q efficientdet.zip -d wheat_efficientdet/pretrained_models
 
 cd wheat_efficientdet/src
-
-python train.py \
---epoch=100 \
---model-variant=d0 \
---bs=8 \
