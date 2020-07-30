@@ -175,7 +175,7 @@ class Learner:
                 # Calculate IOU
                 eval_model = load_model_for_eval(os.path.join(self.save_dir, 'last-cp.bin'), variant=self.hparams.model_variant)
                 preds = eval_model(images, torch.tensor([1]*images.shape[0]).float().cuda())
-                target['boxes'][:, [0,1,2,3]] = target['boxes'][:, [1,0,3,2]]   # revert back to xyxy
+                targets['boxes'][:, [0,1,2,3]] = targets['boxes'][:, [1,0,3,2]]   # revert back to xyxy
                 
                 for i in range(images.shape[0]):
                     boxes = preds[i].detach().cpu().numpy()[:, :4]    
