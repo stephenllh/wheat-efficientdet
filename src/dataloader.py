@@ -40,7 +40,8 @@ class Dataset:
                 if len(sample['bboxes']) > 0:
                     image = sample['image']
                     target['boxes'] = torch.stack(tuple(map(torch.tensor, zip(*sample['bboxes'])))).permute(1, 0)
-                    target['boxes'][:, [0,1,2,3]] = target['boxes'][:, [1,0,3,2]]  # y,x,y,x
+                    if not test:
+                        target['boxes'][:, [0,1,2,3]] = target['boxes'][:, [1,0,3,2]]  # y,x,y,x for efficientdet_pytorch repo CocoDataset class (self.yxyx=True for PyTorch)
                     break
 
         return image, target, image_id

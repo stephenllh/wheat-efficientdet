@@ -46,7 +46,6 @@ class Learner:
         self.optimizer = torch.optim.AdamW(optimizer_grouped_parameters, lr=self.hparams.lr)
         self.scheduler = scheduler_class(self.optimizer, **scheduler_params)
         
-        self.log('Learner prepared.')
         with open(f'{self.log_dir}/log.txt', 'a+') as logger:
             logger.write(f'{self.hparams}\n')
 
@@ -60,7 +59,7 @@ class Learner:
         for epoch in range(self.hparams.epoch):
              
             lr = self.optimizer.param_groups[0]['lr']
-            self.log(f'\n{datetime.now(Zone(+8, False, 'GMT')).strftime(f'%d-%m-%Y %H:%M')}')
+            self.log(f'\n{datetime.now(Zone(+8, False, "GMT")).strftime(f"%d-%m-%Y %H:%M")}')
             self.log(f'\nEpoch {epoch+1}/{self.hparams.epoch}')
             self.log(f'\nInitial learning rate for epoch {epoch}: {lr:.4e}')
             
@@ -68,14 +67,14 @@ class Learner:
             t = time.time()
             train_loss = self.train(train_loader)
             tt = time.time() - t
-            self.log(f'\n[RESULT]: Training loss: {train_loss.avg:.5f}, Time taken: {tt//60}m{tt%60:02d}s')
+            self.log(f'\n[RESULT]: Training loss: {train_loss.avg:.5f}, Time taken: {tt//60:.0f}m {tt%60:.0f}s')
             self.save('last-cp.bin')
             
             # Validation loop
             t = time.time()
             valid_loss, iou = self.validation(valid_loader)
             tt = time.time() - t
-            self.log(f'\n[RESULT]: Validation loss: {valid_loss.avg:.5f}, IOU: {iou:.5f}, Time taken: {tt//60}m{tt%60:02d}s')
+            self.log(f'\n[RESULT]: Validation loss: {valid_loss.avg:.5f}, IOU: {iou:.5f}, Time taken: {tt//60:.0f}m {tt%60:.0f}s')
             
             if valid_loss.avg < self.best_valid_loss:
                 self.best_valid_loss = valid_loss.avg
@@ -105,7 +104,7 @@ class Learner:
         t = time.time()
         for step, (images, targets, image_ids) in enumerate(train_loader):
             if self.hparams.verbose:
-                if step % self.hparams.verbose_step == 0:
+                if (step + 1) % self.hparams.verbose_step == 0:
                     lr = self.optimizer.param_groups[0]['lr']
                     print(
                         f'\rTraining step {step+1}/{len(train_loader)}, ' + \
@@ -175,8 +174,9 @@ class Learner:
                 # Calculate IOU
                 eval_model = load_model_for_eval(os.path.join(self.save_dir, 'last-cp.bin'), variant=self.hparams.model_variant)
                 preds = eval_model(images, torch.tensor([1]*images.shape[0]).float().cuda())
+                
                 for i in range(images.shape[0]):
-                    boxes = preds[i].detach().cpu().numpy()[:,:4]    
+                    boxes = preds[i].detach().cpu().numpy()[:, :4]    
                     scores = preds[i].detach().cpu().numpy()[:,4]
                     boxes[:, 2] = boxes[:, 2] + boxes[:, 0]
                     boxes[:, 3] = boxes[:, 3] + boxes[:, 1]
@@ -186,6 +186,7 @@ class Learner:
                         'gt_boxes': (targets[i]['boxes'].cpu().numpy()*2).clip(min=0, max=1023).astype(int),
                         'image_id': image_ids[i],
                     })
+                
                 best_final_score, best_score_threshold = 0, 0
                 for score_threshold in np.arange(0, 1, 0.01):
                     final_score = calculate_final_score(all_predictions, score_threshold)
@@ -208,9 +209,9 @@ class Learner:
         }, os.path.join(self.save_dir, name))
       
 
-    def load(self, name, weights_only):
+    def load(self, path, weights_only):
 
-        checkpoint = torch.load(os.path.join(self.save_dir, name))
+        checkpoint = torch.load(path)
         self.model.model.load_state_dict(checkpoint['model_state_dict'])
         
         if weights_only:
