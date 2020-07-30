@@ -46,14 +46,17 @@ class Learner:
         self.optimizer = torch.optim.AdamW(optimizer_grouped_parameters, lr=self.hparams.lr)
         self.scheduler = scheduler_class(self.optimizer, **scheduler_params)
         
-        with open(f'{self.log_dir}/log.txt', 'a+') as logger:
-            logger.write(f'{self.hparams}\n')
+        self.log(f'{self.hparams}\n', cancel_print=True)
 
     def fit(self, train_loader, valid_loader):
         
-        # with open(self.log_dir, 'a+') as logger:
-        #     logger.write(f'{self.hparams}\n')
-        
+        if self.hparams.continue_train:
+            try:
+                self.load(self.hparams.load_path, weights_only=self.hparams.weights_only)
+            except:
+                checkpoint = torch.load(self.hparams.load_path)
+                self.model.model.load_state_dict(checkpoint)
+ 
         self.scaler = GradScaler()
             
         for epoch in range(self.hparams.epoch):
@@ -94,9 +97,6 @@ class Learner:
 
 
     def train(self, train_loader):
-        
-        if self.hparams.continue_train:
-            self.load(self.hparams.checkpoint_name, weights_only=self.hparams.weights_only)
             
         self.model.train()
         
@@ -122,21 +122,22 @@ class Learner:
                     loss, _, _ = self.model(images, boxes, labels)
                     loss /= self.accumulation_steps
                 self.scaler.scale(loss).backward()
-                if (step + 1) % self.accumulation_steps == 0:
-                    self.scaler.step(self.optimizer)
-                    self.scaler.update()
-                    # self.scaler.unscale_(self.optimizer)
-                    self.optimizer.zero_grad()
-                        
-                if self.hparams.step_sched:
-                    self.scheduler.step()
-                    
             else:
                 loss, _, _ = self.model(images, boxes, labels)
                 loss.backward()
-                self.optimizer.step()
+                
+            if (step + 1) % self.accumulation_steps == 0:
+                if self.hparams.fp16:
+                    self.scaler.step(self.optimizer)
+                    self.scaler.update()
+                    # self.scaler.unscale_(self.optimizer)    
+                else:
+                    self.optimizer.step()
+                    
+                self.optimizer.zero_grad() 
+                        
                 if self.hparams.step_sched:
-                    self.scheduler.step()     
+                    self.scheduler.step()
 
             batch_size = images.shape[0]
             train_loss.update(loss.detach().item() * self.accumulation_steps, batch_size)
@@ -174,6 +175,7 @@ class Learner:
                 # Calculate IOU
                 eval_model = load_model_for_eval(os.path.join(self.save_dir, 'last-cp.bin'), variant=self.hparams.model_variant)
                 preds = eval_model(images, torch.tensor([1]*images.shape[0]).float().cuda())
+                target['boxes'][:, [0,1,2,3]] = target['boxes'][:, [1,0,3,2]]   # revert back to xyxy
                 
                 for i in range(images.shape[0]):
                     boxes = preds[i].detach().cpu().numpy()[:, :4]    
@@ -221,12 +223,12 @@ class Learner:
             self.epoch = checkpoint['epoch'] + 1
     
 
-    def log(self, message):
+    def log(self, message, cancel_print=False):
         
         if not os.path.exists(self.log_dir):
             os.makedirs(self.log_dir)
         
-        if self.hparams.verbose:
+        if self.hparams.verbose and not cancel_print:
             print(message)
             
         with open(f'{self.log_dir}/log.txt', 'a+') as logger:

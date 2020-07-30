@@ -39,9 +39,12 @@ class Dataset:
                 sample = self.transforms(**{'image': image, 'bboxes': target['boxes'], 'labels': labels})
                 if len(sample['bboxes']) > 0:
                     image = sample['image']
-                    target['boxes'] = torch.stack(tuple(map(torch.tensor, zip(*sample['bboxes'])))).permute(1, 0)
-                    if not test:
-                        target['boxes'][:, [0,1,2,3]] = target['boxes'][:, [1,0,3,2]]  # y,x,y,x for efficientdet_pytorch repo CocoDataset class (self.yxyx=True for PyTorch)
+                    # target['boxes'] = torch.stack(tuple(map(torch.tensor, zip(*sample['bboxes'])))).permute(1, 0)
+                    target['boxes'] = torch.tensor(sample['bboxes'])
+                    #target['boxes'][:, [0,1,2,3]] = target['boxes'][:, [1,0,3,2]]  # y,x,y,x for efficientdet_pytorch repo CocoDataset class (self.yxyx=True for PyTorch)
+                    # if not test:
+                    #     target['boxes'][:, [0,1,2,3]] = target['boxes'][:, [1,0,3,2]]  # y,x,y,x for efficientdet_pytorch repo CocoDataset class (self.yxyx=True for PyTorch)
+                    target['labels'] = torch.stack(sample['labels'])
                     break
 
         return image, target, image_id
