@@ -75,9 +75,9 @@ class Learner:
             
             # Validation loop
             t = time.time()
-            valid_loss, iou = self.validation(valid_loader)
+            valid_loss, score = self.validation(valid_loader)
             tt = time.time() - t
-            self.log(f'\n[RESULT]: Validation loss: {valid_loss.avg:.5f}, IOU: {iou:.5f}, Time taken: {tt//60:.0f}m {tt%60:.0f}s')
+            self.log(f'\n[RESULT]: Validation loss: {valid_loss.avg:.5f}, Metric score: {score:.5f}, Time taken: {tt//60:.0f}m {tt%60:.0f}s')
             
             if valid_loss.avg < self.best_valid_loss:
                 self.best_valid_loss = valid_loss.avg
@@ -149,7 +149,7 @@ class Learner:
         return train_loss
 
 
-    def validation(self, val_loader):  # TODO: add IOU
+    def validation(self, val_loader):
         
         self.model.eval()
         valid_loss = AverageMeter()
@@ -173,7 +173,7 @@ class Learner:
                 batch_size = images.shape[0]
                 valid_loss.update(loss.detach().item(), batch_size)
                 
-                # Calculate IOU
+                # Calculate metric (mAP)
                 eval_model = load_model_for_eval(os.path.join(self.save_dir, 'last-cp.bin'), variant=self.hparams.model_variant)
                 preds = eval_model(images, torch.tensor([1]*images.shape[0]).float().cuda())
                 
@@ -218,7 +218,7 @@ class Learner:
         checkpoint = torch.load(path)
         self.model.model.load_state_dict(checkpoint['model_state_dict'])
         
-        if weights_only:
+        if not weights_only:
             self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
             self.best_valid_loss = checkpoint['best_valid_loss']

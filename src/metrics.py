@@ -102,8 +102,9 @@ def find_best_match(gts, pred, pred_idx, threshold = 0.5, form = 'pascal_voc', i
 
     return best_match_idx
 
+
 @jit(nopython=True)
-def calculate_precision(gts, preds, threshold=0.5, form = 'coco', ious=None) -> float:
+def calculate_precision(gts, preds, threshold=0.5, form='coco', ious=None) -> float:
     """
     Calculates precision for ground truth-prediction pairs at a particular threshold.
 
@@ -138,7 +139,7 @@ def calculate_precision(gts, preds, threshold=0.5, form = 'coco', ious=None) -> 
 
 
 @jit(nopython=True)
-def calculate_image_precision(gts, preds, thresholds = (0.5, ), form = 'coco') -> float:
+def calculate_image_precision(gts, preds, thresholds=(0.5,), form='coco') -> float:
     """
     Calculates image precision.
 
@@ -169,7 +170,7 @@ def calculate_final_score(all_predictions, score_threshold):
     for i in range(len(all_predictions)):
         gt_boxes = all_predictions[i]['gt_boxes'].copy()
         pred_boxes = all_predictions[i]['pred_boxes'].copy()
-        scores = all_predictions[i]['scores'].copy()
+        scores = all_predictions[i]['scores'].copy()   # confidence levels of predicted bounding boxes
         image_id = all_predictions[i]['image_id']
 
         indexes = np.where(scores>score_threshold)

@@ -51,7 +51,7 @@ parser.add_argument('--fp16', default=True, type=bool, help='use fp16 or not')
 
 # Scheduler
 parser.add_argument('--scheduler', default='plateau', type=str, help='scheduler class: choose from ["plateau", "one_cycle"]')
-parser.add_argument('--sched-verbose', default=False, type=bool, help='verbosity in the scheduler')
+parser.add_argument('--sched-verbose', default=True, type=bool, help='verbosity in the scheduler')
 parser.add_argument('--verbose', default=True, type=bool, help='verbosity in the Learner')
 parser.add_argument('--verbose-step', default=1, type=int, help='verbosity step in the Learner')
 parser.add_argument('--debug', default=False, type=bool, help='debug mode or not in Learner')
