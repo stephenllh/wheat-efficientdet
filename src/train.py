@@ -44,7 +44,7 @@ parser.add_argument('--model-variant', '-m', required=True, type=str, help='mode
 parser.add_argument('--epoch', '-e', type=int, required=True, help='number of epochs')
 parser.add_argument('--lr', default=2e-4, type=float, help='(max) learning rate')
 parser.add_argument('--bs', default=4, type=int, help='batch size')
-parser.add_argument('--eff_bs', default=64, type=int, help='effective batch size for gradient accumulation')
+parser.add_argument('--eff-bs', default=64, type=int, help='effective batch size for gradient accumulation')
 parser.add_argument('--wd', default=1e-3, type=float, help='weight decay')
 parser.add_argument('--num-workers', default=4, type=int, help='num workers')
 parser.add_argument('--fp16', default=True, type=bool, help='use fp16 or not')

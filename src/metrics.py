@@ -177,7 +177,8 @@ def calculate_final_score(all_predictions, score_threshold):
         scores = scores[indexes]
         
         iou_thresholds = numba.typed.List()
-        for x in [0.5, 0.55, 0.6, 0.65, 0.7, 0.75]:   # these thresholds are for this competition only!
+        # for x in [0.5, 0.55, 0.6, 0.65, 0.7, 0.75]:   # these thresholds are for this competition only!
+        for x in [0.5, 0.75]:
             iou_thresholds.append(x)
 
         image_precision = calculate_image_precision(gt_boxes, pred_boxes, thresholds=iou_thresholds, form='pascal_voc')

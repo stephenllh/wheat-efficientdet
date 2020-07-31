@@ -56,7 +56,7 @@ class Learner:
             except:
                 checkpoint = torch.load(self.hparams.load_path)
                 self.model.model.load_state_dict(checkpoint)
- 
+        
         self.scaler = GradScaler()
             
         for epoch in range(self.hparams.epoch):
@@ -167,6 +167,7 @@ class Learner:
                 images = torch.stack(images).to('cuda').float()
                 boxes = [target['boxes'].to('cuda').float() for target in targets]
                 labels = [target['labels'].to('cuda').float() for target in targets]
+                # print(boxes[0])
 
                 loss, _, _ = self.model(images, boxes, labels)
                 batch_size = images.shape[0]
@@ -175,13 +176,14 @@ class Learner:
                 # Calculate IOU
                 eval_model = load_model_for_eval(os.path.join(self.save_dir, 'last-cp.bin'), variant=self.hparams.model_variant)
                 preds = eval_model(images, torch.tensor([1]*images.shape[0]).float().cuda())
-                targets['boxes'][:, [0,1,2,3]] = targets['boxes'][:, [1,0,3,2]]   # revert back to xyxy
                 
                 for i in range(images.shape[0]):
                     boxes = preds[i].detach().cpu().numpy()[:, :4]    
                     scores = preds[i].detach().cpu().numpy()[:,4]
                     boxes[:, 2] = boxes[:, 2] + boxes[:, 0]
                     boxes[:, 3] = boxes[:, 3] + boxes[:, 1]
+                    targets[i]['boxes'][:, [0,1,2,3]] = targets[i]['boxes'][:, [1,0,3,2]]   # convert back target boxes to xyxy
+
                     all_predictions.append({
                         'pred_boxes': (boxes*2).clip(min=0, max=1023).astype(int),
                         'scores': scores,
@@ -190,7 +192,7 @@ class Learner:
                     })
                 
                 best_final_score, best_score_threshold = 0, 0
-                for score_threshold in np.arange(0, 1, 0.01):
+                for score_threshold in np.arange(0, 1, 0.1):
                     final_score = calculate_final_score(all_predictions, score_threshold)
                     if final_score > best_final_score:
                         best_final_score = final_score
