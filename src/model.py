@@ -29,8 +29,9 @@ def get_model(variant, model_dir, checkpoint_path=None):
     config.num_classes = 1
     config.image_size = 512
     net.class_net = HeadNet(config, num_outputs=config.num_classes, norm_kwargs=dict(eps=.001, momentum=.01))
-        
-    if checkpoint_path is not None:
+    # print(type(checkpoint_path))  
+    # print((checkpoint_path is None))  
+    if checkpoint_path != '':
         checkpoint = torch.load(checkpoint_path)
         net.load_state_dict(checkpoint['model_state_dict'])
 

@@ -9,7 +9,7 @@ from dataloader import get_train_loader, get_valid_loader
 from transforms import get_train_augs, get_valid_augs
 from model import get_model
 from engine import get_scheduler, Learner
-from utils import seed_everything
+from utils import seed_everything, nullable_string
 
 
 parser = argparse.ArgumentParser(description='Wheat detection with EfficientDet')
@@ -72,7 +72,7 @@ parser.add_argument('--seed', default=42, type=int, help='seed')
 parser.add_argument('--save-name', default='model', type=str, help='name of saved model after training')
 
 # Load model
-parser.add_argument('--load-path', default=None, type=str, help='dir + name of loaded model')
+parser.add_argument('--load-path', default='', type=str, help='dir + name of loaded model')
 parser.add_argument('--weights-only', default=True, type=bool, help='True: use as transfer learning. False: continue from checkpoint.')
 # parser.add_argument('--continue-train', default=False, type=bool, help='Continue from saved model or not')
 

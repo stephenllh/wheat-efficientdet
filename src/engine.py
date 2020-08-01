@@ -1,18 +1,14 @@
+import os
+from glob import glob
+import random
+import time
+from datetime import datetime
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import PIL
 import cv2
-import os
-from tqdm.notebook import tqdm   # for notebook version
-from glob import glob
-import ast
-import random
-import time
-from datetime import datetime
-from model import load_model_for_eval
-from utils import AverageMeter, Zone
-from metrics import calculate_final_score
 
 import torch
 from torch import nn
@@ -25,6 +21,10 @@ try:
 except:
     pass
 import torchvision
+
+from model import load_model_for_eval
+from utils import AverageMeter, Zone
+from metrics import calculate_final_score
 
 
 class Learner:
@@ -52,19 +52,10 @@ class Learner:
         self.log(f'{self.hparams}\n', cancel_print=True)
 
     def fit(self, train_loader, valid_loader):
-        
-        if self.hparams.continue_train:
-            try:
-                self.load(self.hparams.load_path, weights_only=self.hparams.weights_only)
-            except:
-                checkpoint = torch.load(self.hparams.load_path)
-                self.model.model.load_state_dict(checkpoint)
-        
         if self.hparams.fp16:
             self.scaler = GradScaler()
             
         for epoch in range(self.hparams.epoch):
-             
             lr = self.optimizer.param_groups[0]['lr']
             self.log(f'\n{datetime.now(Zone(+8, False, "GMT")).strftime(f"%d-%m-%Y %H:%M")}')
             self.log(f'\nEpoch {epoch+1}/{self.hparams.epoch}')
@@ -81,7 +72,7 @@ class Learner:
             t = time.time()
             valid_loss, score = self.validation(valid_loader)
             tt = time.time() - t
-            self.log(f'\n[RESULT]: Validation loss: {valid_loss.avg:.5f}, Metric score: {score:.5f}, Time taken: {tt//60:.0f}m {tt%60:.0f}s')
+            self.log(f'\r\n[RESULT]: Validation loss: {valid_loss.avg:.5f}, Metric score: {score:.5f}, Time taken: {tt//60:.0f}m {tt%60:.0f}s')
             
             if valid_loss.avg < self.best_valid_loss:
                 self.best_valid_loss = valid_loss.avg

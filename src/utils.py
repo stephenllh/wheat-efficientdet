@@ -96,3 +96,9 @@ class Zone(tzinfo):
 
     def tzname(self,dt):
          return self.name
+     
+     
+def nullable_string(value):
+    if not value:
+        return None
+    return value
