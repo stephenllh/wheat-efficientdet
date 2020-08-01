@@ -119,17 +119,21 @@ class Learner:
             boxes  = [target['boxes'].to('cuda').float() for target in targets]
             labels = [target['labels'].to('cuda').float() for target in targets]
             
+            if self.hparams.fp16:
+                with autocast():
+                    loss, _, _ = self.model(images, boxes, labels)      
+            else:
+                loss, _, _ = self.model(images, boxes, labels)
+                
+            loss /= self.accumulation_steps
+                
             if (step + 1) % self.accumulation_steps == 0:
                 if self.hparams.fp16:
-                    with autocast():
-                        loss, _, _ = self.model(images, boxes, labels)
-                        loss /= self.accumulation_steps
                     self.scaler.scale(loss).backward()
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
                     # self.scaler.unscale_(self.optimizer)
                 else:
-                    loss, _, _ = self.model(images, boxes, labels)
                     loss.backward()
                     self.optimizer.step()
 

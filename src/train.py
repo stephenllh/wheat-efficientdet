@@ -19,7 +19,6 @@ parser.add_argument('--root-dir', default='../', type=str, help='directory of da
 parser.add_argument('--data-dir', default='../input', type=str, help='directory of data')
 parser.add_argument('--model-dir', default='../pretrained_models', type=str, help='directory of downloaded efficientnet models')
 parser.add_argument('--save-dir', default='../models', type=str, help='directory of saved models')
-parser.add_argument('--load-dir', default='../models', type=str, help='directory of saved models')
 
 # Training fold
 parser.add_argument('--n-folds', default=5, type=int, help='number of k-folds')
@@ -73,9 +72,9 @@ parser.add_argument('--seed', default=42, type=int, help='seed')
 parser.add_argument('--save-name', default='model', type=str, help='name of saved model after training')
 
 # Load model
-parser.add_argument('--load-path', default='', type=str, help='dir + name of loaded model')
+parser.add_argument('--load-path', default=None, type=str, help='dir + name of loaded model')
 parser.add_argument('--weights-only', default=True, type=bool, help='True: use as transfer learning. False: continue from checkpoint.')
-parser.add_argument('--continue-train', default=False, type=bool, help='Continue from saved model or not')
+# parser.add_argument('--continue-train', default=False, type=bool, help='Continue from saved model or not')
 
 # Misc
 parser.add_argument('--nb', default=False, type=bool, help='for tqdm')
@@ -99,7 +98,7 @@ def run():
     valid_loader = get_valid_loader(args.data_dir, df, valid_image_ids, transforms=get_valid_augs(args), 
                                     batch_size=args.bs, num_workers=args.num_workers)
     
-    model = get_model(args.model_variant, model_dir=args.model_dir).cuda()
+    model = get_model(args.model_variant, model_dir=args.model_dir, checkpoint_path=args.load_path).cuda()
     
     if args.scheduler == 'one_cycle':
         args.steps_per_epoch = len(train_image_ids) // args.bs

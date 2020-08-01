@@ -4,12 +4,12 @@ import torch
 import gc
 
 
-def get_model(variant, model_dir, pretrained=True):
+def get_model(variant, model_dir, checkpoint_path=None):
 
     config = get_efficientdet_config(f'tf_efficientdet_{variant}')
     net = EfficientDet(config, pretrained_backbone=False)
     
-    if pretrained:
+    if checkpoint_path is None:
         if variant == 'd0':
             checkpoint_path = f'{model_dir}/efficientdet_d0-d92fd44f.pth'
         elif variant == 'd1':
@@ -22,12 +22,17 @@ def get_model(variant, model_dir, pretrained=True):
             checkpoint_path = f'{model_dir}/efficientdet_d4-5b370b7a.pth'
         elif variant == 'd5':
             checkpoint_path = f'{model_dir}/efficientdet_d5-ef44aea8.pth'
-
+            
         checkpoint = torch.load(checkpoint_path)
         net.load_state_dict(checkpoint)
-        config.num_classes = 1
-        config.image_size = 512
-        net.class_net = HeadNet(config, num_outputs=config.num_classes, norm_kwargs=dict(eps=.001, momentum=.01))
+
+    config.num_classes = 1
+    config.image_size = 512
+    net.class_net = HeadNet(config, num_outputs=config.num_classes, norm_kwargs=dict(eps=.001, momentum=.01))
+        
+    if checkpoint_path is not None:
+        checkpoint = torch.load(checkpoint_path)
+        net.load_state_dict(checkpoint['model_state_dict'])
 
     return DetBenchTrain(net, config)
 
