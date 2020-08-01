@@ -22,7 +22,7 @@ parser.add_argument('--save-dir', default='../models', type=str, help='directory
 parser.add_argument('--load-dir', default='../models', type=str, help='directory of saved models')
 
 # Training fold
-parser.add_argument('--subset', default=1.0, type=float, help='subset of data')
+parser.add_argument('--n_folds', default=5, type=int, help='number of k-folds')
 parser.add_argument('--fold', default=0, type=int, help='fold number')
 
 # Augmentations
@@ -87,7 +87,7 @@ def run():
     
     df = pd.read_csv(os.path.join(args.data_dir, 'train.csv'))
     df = process_data(df, args.subset)
-    df_folds = create_folds(df)
+    df_folds = create_folds(df, args.n_folds)
     
     train_image_ids = df_folds[df_folds['fold'] != args.fold].index.values
     valid_image_ids = df_folds[df_folds['fold'] == args.fold].index.values

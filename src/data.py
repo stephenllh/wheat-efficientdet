@@ -15,7 +15,7 @@ def process_data(df, subset=1.0):
     return df
     
     
-def create_folds(df):
+def create_folds(df, n_folds):
     df_folds = df[['image_id']].copy()
     
     # Group the dataframe by image_id (because 1 image_id can appear in multiple rows) and get the bbox_count
@@ -35,7 +35,7 @@ def create_folds(df):
     df_folds['fold'] = -1
 
     # Assign fold indices
-    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    skf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=42)
     for fold_idx, (train_idx, valid_idx) in enumerate(skf.split(X=df_folds.index, y=df_folds['stratify_group'])):
         df_folds.loc[df_folds.iloc[valid_idx].index, 'fold'] = fold_idx
 
