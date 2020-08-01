@@ -60,7 +60,8 @@ class Learner:
                 checkpoint = torch.load(self.hparams.load_path)
                 self.model.model.load_state_dict(checkpoint)
         
-        self.scaler = GradScaler()
+        if self.hparams.fp16:
+            self.scaler = GradScaler()
             
         for epoch in range(self.hparams.epoch):
              
