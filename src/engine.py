@@ -101,9 +101,7 @@ class Learner:
 
 
     def train(self, train_loader):
-            
         self.model.train()
-        
         train_loss = AverageMeter()
         t = time.time()
         for step, (images, targets, image_ids) in enumerate(train_loader):
@@ -121,28 +119,25 @@ class Learner:
             boxes  = [target['boxes'].to('cuda').float() for target in targets]
             labels = [target['labels'].to('cuda').float() for target in targets]
             
-            if self.hparams.fp16:
-                with autocast():
-                    loss, _, _ = self.model(images, boxes, labels)
-                    loss /= self.accumulation_steps
-                self.scaler.scale(loss).backward()
-            else:
-                loss, _, _ = self.model(images, boxes, labels)
-                loss.backward()
-                
             if (step + 1) % self.accumulation_steps == 0:
                 if self.hparams.fp16:
+                    with autocast():
+                        loss, _, _ = self.model(images, boxes, labels)
+                        loss /= self.accumulation_steps
+                    self.scaler.scale(loss).backward()
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
-                    # self.scaler.unscale_(self.optimizer)    
+                    # self.scaler.unscale_(self.optimizer)
                 else:
+                    loss, _, _ = self.model(images, boxes, labels)
+                    loss.backward()
                     self.optimizer.step()
-                    
+
                 self.optimizer.zero_grad() 
                         
-                if self.hparams.step_sched:
-                    self.scheduler.step()
-
+            if self.hparams.step_sched:
+                self.scheduler.step()
+            
             batch_size = images.shape[0]
             train_loss.update(loss.detach().item() * self.accumulation_steps, batch_size)
 
@@ -154,7 +149,6 @@ class Learner:
 
 
     def validation(self, val_loader):
-        
         self.model.eval()
         valid_loss = AverageMeter()
         t = time.time()
