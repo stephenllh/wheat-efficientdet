@@ -22,6 +22,8 @@ from torch.utils.data.sampler import SequentialSampler, RandomSampler
 from torch.optim import lr_scheduler
 try:
     from torch.cuda.amp import autocast, GradScaler
+except:
+    pass
 import torchvision
 
 
