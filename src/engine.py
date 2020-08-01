@@ -20,7 +20,8 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import SequentialSampler, RandomSampler
 from torch.optim import lr_scheduler
-from torch.cuda.amp import autocast, GradScaler
+try:
+    from torch.cuda.amp import autocast, GradScaler
 import torchvision
 
 
