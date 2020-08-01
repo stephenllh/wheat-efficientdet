@@ -192,7 +192,7 @@ class Learner:
                     })
                 
                 best_final_score, best_score_threshold = 0, 0
-                for score_threshold in np.arange(0, 1, 0.1):
+                for score_threshold in np.arange(0.2, 0.5, 0.01):
                     final_score = calculate_final_score(all_predictions, score_threshold)
                     if final_score > best_final_score:
                         best_final_score = final_score
