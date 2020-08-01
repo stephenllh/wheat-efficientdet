@@ -22,7 +22,8 @@ parser.add_argument('--save-dir', default='../models', type=str, help='directory
 parser.add_argument('--load-dir', default='../models', type=str, help='directory of saved models')
 
 # Training fold
-parser.add_argument('--n_folds', default=5, type=int, help='number of k-folds')
+parser.add_argument('--n-folds', default=5, type=int, help='number of k-folds')
+parser.add_argument('--subset', default=1.0, type=float, help='subset of data')
 parser.add_argument('--fold', default=0, type=int, help='fold number')
 
 # Augmentations
