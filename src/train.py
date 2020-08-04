@@ -81,6 +81,9 @@ parser.add_argument('--nb', default=False, type=bool, help='for tqdm')
 
 args = parser.parse_args()
 
+for arg in vars(args):
+    print (arg, getattr(args, arg))
+
     
 def run():
     seed_everything(args.seed)
