@@ -35,7 +35,8 @@ class Dataset:
         }
 
         if self.transforms:
-            while True:
+            for _ in range(10):
+            #while True:
                 sample = self.transforms(**{'image': image, 'bboxes': target['boxes'], 'labels': labels})
                 if len(sample['bboxes']) > 0:
                     image = sample['image']
