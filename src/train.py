@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 import pandas as pd
 import numpy as np
+from sklearn.model_selection import StratifiedKFold
 import argparse
 from data import process_data, create_folds
 from dataloader import get_train_loader, get_valid_loader
