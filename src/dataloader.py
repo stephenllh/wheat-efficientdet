@@ -21,10 +21,10 @@ class Dataset:
     def __getitem__(self, index):
         image_id = self.image_ids[index]
         
-        if self.do_cutmix and random.random() > 0.5:
-            image, boxes = self.load_cutmix_image_and_boxes(index)
-        else:
+        if self.test or random.random() > 0.5:
             image, boxes = self.load_image_and_boxes(index)
+        else:
+            image, boxes = self.load_cutmix_image_and_boxes(index)
         
         labels = torch.ones((boxes.shape[0],), dtype=torch.int64)   # there is only one class
         
