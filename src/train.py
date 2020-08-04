@@ -88,14 +88,38 @@ for arg in vars(args):
 def run():
     seed_everything(args.seed)
     
-    df = pd.read_csv(os.path.join(args.data_dir, 'train.csv'))
-    df = process_data(df, args.subset)
-    df_folds = create_folds(df, args.n_folds)
+    # df = pd.read_csv(os.path.join(args.data_dir, 'train.csv'))
+    # df = process_data(df, args.subset)
+    # df_folds = create_folds(df, args.n_folds)
     
+    marking = pd.read_csv(os.path.join(args.data_dir, 'train.csv'))
+
+    bboxs = np.stack(marking['bbox'].apply(lambda x: np.fromstring(x[1:-1], sep=',')))
+    for i, column in enumerate(['x', 'y', 'w', 'h']):
+        marking[column] = bboxs[:,i]
+    marking.drop(columns=['bbox'], inplace=True)
+
+    skf = StratifiedKFold(n_splits=num_splits, shuffle=True, random_state=42)
+
+    df_folds = marking[['image_id']].copy()
+    df_folds.loc[:, 'bbox_count'] = 1
+    df_folds = df_folds.groupby('image_id').count()
+    df_folds.loc[:, 'source'] = marking[['image_id', 'source']].groupby('image_id').min()['source']
+    df_folds.loc[:, 'stratify_group'] = np.char.add(
+        df_folds['source'].values.astype(str),
+        df_folds['bbox_count'].apply(lambda x: f'_{x // 15}').values.astype(str)
+    )
+    df_folds.loc[:, 'fold'] = 0
+
+    for fold_number, (train_index, val_index) in enumerate(skf.split(X=df_folds.index, y=df_folds['stratify_group'])):
+        df_folds.loc[df_folds.iloc[val_index].index, 'fold'] = fold_number
+        
+        
     train_image_ids = df_folds[df_folds['fold'] != args.fold].index.values
     valid_image_ids = df_folds[df_folds['fold'] == args.fold].index.values
     
-    train_loader = get_train_loader(args.data_dir, df, train_image_ids, transforms=get_train_augs(args), do_cutmix=args.cutmix, 
+    
+    train_loader = get_train_loader(args.data_dir, marking, train_image_ids, transforms=get_train_augs(args), do_cutmix=args.cutmix, 
                                     batch_size=args.bs, num_workers=args.num_workers)
     
     valid_loader = get_valid_loader(args.data_dir, df, valid_image_ids, transforms=get_valid_augs(args), 
