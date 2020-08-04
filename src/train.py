@@ -81,8 +81,8 @@ parser.add_argument('--nb', default=False, type=bool, help='for tqdm')
 
 args = parser.parse_args()
 
-for arg in vars(args):
-    print (arg, getattr(args, arg))
+# for arg in vars(args):
+#     print (arg, getattr(args, arg))
 
     
 def run():
@@ -99,7 +99,7 @@ def run():
         marking[column] = bboxs[:,i]
     marking.drop(columns=['bbox'], inplace=True)
 
-    skf = StratifiedKFold(n_splits=num_splits, shuffle=True, random_state=42)
+    skf = StratifiedKFold(n_splits=args.n_folds, shuffle=True, random_state=42)
 
     df_folds = marking[['image_id']].copy()
     df_folds.loc[:, 'bbox_count'] = 1
@@ -118,8 +118,8 @@ def run():
     train_image_ids = df_folds[df_folds['fold'] != args.fold].index.values
     valid_image_ids = df_folds[df_folds['fold'] == args.fold].index.values
     
-    
-    train_loader = get_train_loader(args.data_dir, marking, train_image_ids, transforms=get_train_augs(args), do_cutmix=args.cutmix, 
+    df = marking
+    train_loader = get_train_loader(args.data_dir, df, train_image_ids, transforms=get_train_augs(args), do_cutmix=args.cutmix, 
                                     batch_size=args.bs, num_workers=args.num_workers)
     
     valid_loader = get_valid_loader(args.data_dir, df, valid_image_ids, transforms=get_valid_augs(args), 
