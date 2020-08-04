@@ -46,7 +46,7 @@ class Learner:
             {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
         ] 
 
-        self.optimizer = torch.optim.AdamW(optimizer_grouped_parameters, lr=self.hparams.lr)
+        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.hparams.lr)
         self.scheduler = scheduler_class(self.optimizer, **scheduler_params)
         
         self.log(f'{self.hparams}\n', cancel_print=True)
@@ -93,6 +93,7 @@ class Learner:
 
     def train(self, train_loader):
         self.model.train()
+         
         train_loss = AverageMeter()
         t = time.time()
         for step, (images, targets, image_ids) in enumerate(train_loader):
@@ -110,32 +111,14 @@ class Learner:
             boxes  = [target['boxes'].to('cuda').float() for target in targets]
             labels = [target['labels'].to('cuda').float() for target in targets]
             
-            if self.hparams.fp16:
-                with autocast():
-                    loss, _, _ = self.model(images, boxes, labels)      
-            else:
-                loss, _, _ = self.model(images, boxes, labels)
-                
-            loss /= self.accumulation_steps
-                
-            if (step + 1) % self.accumulation_steps == 0:
-                if self.hparams.fp16:
-                    self.scaler.scale(loss).backward()
-                    self.scaler.step(self.optimizer)
-                    self.scaler.update()
-                    # self.scaler.unscale_(self.optimizer)
-                else:
-                    loss.backward()
-                    self.optimizer.step()
-
-                self.optimizer.zero_grad() 
-                        
-            if self.hparams.step_sched:
-                self.scheduler.step()
-            
+            self.optimizer.zero_grad()
+            loss, _, _ = self.model(images, boxes, labels)
+            loss.backward()
             batch_size = images.shape[0]
             train_loss.update(loss.detach().item() * self.accumulation_steps, batch_size)
 
+            self.optimizer.step()
+            
             if self.debug:
                 self.save('last-cp.bin')
                 break 
@@ -145,6 +128,7 @@ class Learner:
 
     def validation(self, val_loader):
         self.model.eval()
+        # eval_model = load_model_for_eval(os.path.join(self.save_dir, 'last-cp.bin'), variant=self.hparams.model_variant)
         valid_loss = AverageMeter()
         t = time.time()
         for step, (images, targets, image_ids) in enumerate(val_loader):
@@ -167,29 +151,29 @@ class Learner:
                 valid_loss.update(loss.detach().item(), batch_size)
                 
                 # Calculate metric (mAP)
-                eval_model = load_model_for_eval(os.path.join(self.save_dir, 'last-cp.bin'), variant=self.hparams.model_variant)
-                preds = eval_model(images, torch.tensor([1]*images.shape[0]).float().cuda())
                 
-                for i in range(images.shape[0]):
-                    boxes = preds[i].detach().cpu().numpy()[:, :4]    
-                    scores = preds[i].detach().cpu().numpy()[:,4]
-                    boxes[:, 2] = boxes[:, 2] + boxes[:, 0]
-                    boxes[:, 3] = boxes[:, 3] + boxes[:, 1]
-                    targets[i]['boxes'][:, [0,1,2,3]] = targets[i]['boxes'][:, [1,0,3,2]]   # convert back target boxes to xyxy
+                # preds = eval_model(images, torch.tensor([1]*images.shape[0]).float().cuda())
+                
+                # for i in range(images.shape[0]):
+                #     boxes = preds[i].detach().cpu().numpy()[:, :4]    
+                #     scores = preds[i].detach().cpu().numpy()[:,4]
+                #     boxes[:, 2] = boxes[:, 2] + boxes[:, 0]
+                #     boxes[:, 3] = boxes[:, 3] + boxes[:, 1]
+                #     targets[i]['boxes'][:, [0,1,2,3]] = targets[i]['boxes'][:, [1,0,3,2]]   # convert back target boxes to xyxy
 
-                    all_predictions.append({
-                        'pred_boxes': (boxes*2).clip(min=0, max=1023).astype(int),
-                        'scores': scores,
-                        'gt_boxes': (targets[i]['boxes'].cpu().numpy()*2).clip(min=0, max=1023).astype(int),
-                        'image_id': image_ids[i],
-                    })
+                #     all_predictions.append({
+                #         'pred_boxes': (boxes*2).clip(min=0, max=1023).astype(int),
+                #         'scores': scores,
+                #         'gt_boxes': (targets[i]['boxes'].cpu().numpy()*2).clip(min=0, max=1023).astype(int),
+                #         'image_id': image_ids[i],
+                #     })
                 
-                best_final_score, best_score_threshold = 0, 0
-                for score_threshold in np.arange(0.2, 0.5, 0.01):
-                    final_score = calculate_final_score(all_predictions, score_threshold)
-                    if final_score > best_final_score:
-                        best_final_score = final_score
-                        best_score_threshold = score_threshold
+                # best_final_score, best_score_threshold = 0, 0
+                # for score_threshold in np.arange(0.2, 0.5, 0.01):
+                #     final_score = calculate_final_score(all_predictions, score_threshold)
+                #     if final_score > best_final_score:
+                #         best_final_score = final_score
+                #         best_score_threshold = score_threshold
 
         return valid_loss, best_final_score
 

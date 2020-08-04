@@ -10,8 +10,7 @@ def process_data(df, subset=1.0):
         df[column] = bboxes[:, i]
 
     df = df.drop(columns=['bbox'])
-    df = df.sample(frac=subset).reset_index(drop=True)
-        
+
     return df
     
     
@@ -23,7 +22,7 @@ def create_folds(df, n_folds):
     df_folds = df_folds.groupby('image_id').count()
 
     # Match the source to each image_id
-    df_folds['source'] = df[['image_id', 'source']].groupby('image_id').first()['source']  # besides first(), min() or max() achieves the same
+    df_folds['source'] = df[['image_id', 'source']].groupby('image_id').min()['source']  # besides first(), min() or max() achieves the same
 
     # Create stratify group 
     df_folds['stratify_group'] = np.char.add(
