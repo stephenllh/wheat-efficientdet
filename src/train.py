@@ -1,8 +1,7 @@
 import os
 from datetime import datetime
-import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
 import pandas as pd
+import numpy as np
 import argparse
 from data import process_data, create_folds
 from dataloader import get_train_loader, get_valid_loader
