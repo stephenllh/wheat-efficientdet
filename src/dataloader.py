@@ -17,6 +17,7 @@ class Dataset:
         self.image_ids = image_ids
         self.transforms = transforms
         self.do_cutmix = False if test else do_cutmix
+        self.test = test
 
     def __getitem__(self, index):
         image_id = self.image_ids[index]
