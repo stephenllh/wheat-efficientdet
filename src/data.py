@@ -4,6 +4,7 @@ from sklearn.model_selection import StratifiedKFold
 
 
 def process_data(df, subset=1.0):
+    df = df.copy()
     bboxes = np.stack(df['bbox'].apply(lambda x: np.fromstring(x[1: -1], sep=',')))
 
     for i, column in enumerate(['x', 'y', 'w', 'h']):
@@ -15,6 +16,7 @@ def process_data(df, subset=1.0):
     
     
 def create_folds(df, n_folds):
+    df = df.copy()
     df_folds = df[['image_id']].copy()
     
     # Group the dataframe by image_id (because 1 image_id can appear in multiple rows) and get the bbox_count
