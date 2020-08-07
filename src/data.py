@@ -4,19 +4,18 @@ from sklearn.model_selection import StratifiedKFold
 
 
 def process_data(df, subset=1.0):
-    df = df.copy()
     bboxes = np.stack(df['bbox'].apply(lambda x: np.fromstring(x[1: -1], sep=',')))
 
     for i, column in enumerate(['x', 'y', 'w', 'h']):
         df[column] = bboxes[:, i]
 
     df = df.drop(columns=['bbox'])
-
+    df = df.sample(frac=subset).reset_index(drop=True)
+        
     return df
     
     
 def create_folds(df, n_folds):
-    df = df.copy()
     df_folds = df[['image_id']].copy()
     
     # Group the dataframe by image_id (because 1 image_id can appear in multiple rows) and get the bbox_count
@@ -24,7 +23,7 @@ def create_folds(df, n_folds):
     df_folds = df_folds.groupby('image_id').count()
 
     # Match the source to each image_id
-    df_folds['source'] = df[['image_id', 'source']].groupby('image_id').min()['source']  # besides first(), min() or max() achieves the same
+    df_folds['source'] = df[['image_id', 'source']].groupby('image_id').first()['source']  # besides first(), min() or max() achieves the same
 
     # Create stratify group 
     df_folds['stratify_group'] = np.char.add(

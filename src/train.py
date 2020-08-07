@@ -1,15 +1,15 @@
 import os
 from datetime import datetime
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 import pandas as pd
-import numpy as np
-from sklearn.model_selection import StratifiedKFold
 import argparse
 from data import process_data, create_folds
 from dataloader import get_train_loader, get_valid_loader
 from transforms import get_train_augs, get_valid_augs
 from model import get_model
 from engine import get_scheduler, Learner
-from utils import seed_everything, nullable_string
+from utils import seed_everything
 
 
 parser = argparse.ArgumentParser(description='Wheat detection with EfficientDet')
@@ -44,7 +44,7 @@ parser.add_argument('--model-variant', '-m', required=True, type=str, help='mode
 parser.add_argument('--epoch', '-e', type=int, required=True, help='number of epochs')
 parser.add_argument('--lr', default=2e-4, type=float, help='(max) learning rate')
 parser.add_argument('--bs', default=4, type=int, help='batch size')
-parser.add_argument('--eff-bs', default=64, type=int, help='effective batch size for gradient accumulation')
+parser.add_argument('--accum-step', default=1, type=int, help='number of accumulation steps')
 parser.add_argument('--wd', default=1e-3, type=float, help='weight decay')
 parser.add_argument('--num-workers', default=4, type=int, help='num workers')
 parser.add_argument('--fp16', default=False, action='store_true', help='use fp16 or not')
@@ -74,51 +74,21 @@ parser.add_argument('--save-name', default='model', type=str, help='name of save
 # Load model
 parser.add_argument('--load-path', default='', type=str, help='dir + name of loaded model')
 parser.add_argument('--weights-only', default=True, type=bool, help='True: use as transfer learning. False: continue from checkpoint.')
-# parser.add_argument('--continue-train', default=False, type=bool, help='Continue from saved model or not')
 
-# Misc
-parser.add_argument('--nb', default=False, type=bool, help='for tqdm')
 
 args = parser.parse_args()
 
-# for arg in vars(args):
-#     print (arg, getattr(args, arg))
 
-    
 def run():
     seed_everything(args.seed)
     
-    # df = pd.read_csv(os.path.join(args.data_dir, 'train.csv'))
-    # df = process_data(df, args.subset)
-    # df_folds = create_folds(df, args.n_folds)
+    df = pd.read_csv(os.path.join(args.data_dir, 'train.csv'))
+    df = process_data(df, args.subset)
+    df_folds = create_folds(df, args.n_folds)
     
-    marking = pd.read_csv(os.path.join(args.data_dir, 'train.csv'))
-
-    bboxs = np.stack(marking['bbox'].apply(lambda x: np.fromstring(x[1:-1], sep=',')))
-    for i, column in enumerate(['x', 'y', 'w', 'h']):
-        marking[column] = bboxs[:,i]
-    marking.drop(columns=['bbox'], inplace=True)
-
-    skf = StratifiedKFold(n_splits=args.n_folds, shuffle=True, random_state=42)
-
-    df_folds = marking[['image_id']].copy()
-    df_folds.loc[:, 'bbox_count'] = 1
-    df_folds = df_folds.groupby('image_id').count()
-    df_folds.loc[:, 'source'] = marking[['image_id', 'source']].groupby('image_id').min()['source']
-    df_folds.loc[:, 'stratify_group'] = np.char.add(
-        df_folds['source'].values.astype(str),
-        df_folds['bbox_count'].apply(lambda x: f'_{x // 15}').values.astype(str)
-    )
-    df_folds.loc[:, 'fold'] = 0
-
-    for fold_number, (train_index, val_index) in enumerate(skf.split(X=df_folds.index, y=df_folds['stratify_group'])):
-        df_folds.loc[df_folds.iloc[val_index].index, 'fold'] = fold_number
-        
-        
     train_image_ids = df_folds[df_folds['fold'] != args.fold].index.values
     valid_image_ids = df_folds[df_folds['fold'] == args.fold].index.values
     
-    df = marking
     train_loader = get_train_loader(args.data_dir, df, train_image_ids, transforms=get_train_augs(args), do_cutmix=args.cutmix, 
                                     batch_size=args.bs, num_workers=args.num_workers)
     
@@ -139,4 +109,5 @@ def run():
     
 
 if __name__ == '__main__':
-    run()
+    #run()
+    test()

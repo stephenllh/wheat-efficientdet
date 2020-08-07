@@ -188,3 +188,26 @@ def calculate_final_score(all_predictions, score_threshold):
     return np.mean(final_scores)
 
 
+def evaluate_MAP(preds, targets, bs, all_predictions)
+    for i in range(bs):
+        boxes = preds[i].detach().cpu().numpy()[:, :4]    
+        scores = preds[i].detach().cpu().numpy()[:,4]
+        boxes[:, 2] = boxes[:, 2] + boxes[:, 0]
+        boxes[:, 3] = boxes[:, 3] + boxes[:, 1]
+        targets[i]['boxes'][:, [0,1,2,3]] = targets[i]['boxes'][:, [1,0,3,2]]   # convert back target boxes to xyxy
+
+        all_predictions.append({
+            'pred_boxes': (boxes*2).clip(min=0, max=1023).astype(int),   # multiply by 2 because we need to convert size 512 to 1024. (differs with competitions)
+            'scores': scores,
+            'gt_boxes': (targets[i]['boxes'].cpu().numpy()*2).clip(min=0, max=1023).astype(int),
+            'image_id': image_ids[i],
+        })
+    
+    best_final_score, best_score_threshold = 0, 0
+    for score_threshold in np.arange(0.2, 0.5, 0.01):
+        final_score = calculate_final_score(all_predictions, score_threshold)
+        if final_score > best_final_score:
+            best_final_score = final_score
+            best_score_threshold = score_threshold
+            
+    return best_final_score
