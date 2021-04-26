@@ -152,3 +152,4 @@ cython_debug/
 *.bin
 *.pyc
 *.txt
+*.sh

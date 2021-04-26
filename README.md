@@ -1,4 +1,4 @@
-# <span>Bengali.AI</span> Handwritten Grapheme Classification Bronze Medal Solution
+# Global Wheat Detection with EfficientDet
 
 <!-- ABOUT THE PROJECT -->
 ## About The Project
@@ -19,16 +19,9 @@ This is my solution to the [Global Wheat Detection](https://www.kaggle.com/c/glo
 ## Getting Started
 
 To get a local copy up and running, follow these simple example steps.
-<br/><br/>
 
-### Prerequisites
+<br/>
 
-* PyTorch (version 1.6.0)
-
-  Install using Anaconda:
-  ```sh
-  conda install pytorch=1.6.0 -c pytorch
-  ```
 
 ### Installation
 
@@ -46,6 +39,7 @@ To get a local copy up and running, follow these simple example steps.
    ```sh
    pip install requirements.txt
    ```
+
 <br/>
 
 <!-- USAGE EXAMPLES -->
@@ -81,7 +75,8 @@ To get a local copy up and running, follow these simple example steps.
 ## License
 
 Distributed under the MIT License. See `LICENSE` for more information.
-<br></br>
+
+<br/>
 
 
 <!-- CONTACT -->
