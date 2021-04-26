@@ -20,8 +20,6 @@ This is my solution to the [Global Wheat Detection](https://www.kaggle.com/c/glo
 
 To get a local copy up and running, follow these simple example steps.
 
-<br/>
-
 
 ### Installation
 
