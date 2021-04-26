@@ -172,13 +172,13 @@ class DetectionLoss(nn.Module):
 
         cls_losses = []
         box_losses = []
-        for l in range(levels):
+        for level in range(levels):
             if stack_targets:
-                cls_targets_at_level = torch.stack([b[l] for b in cls_targets])
-                box_targets_at_level = torch.stack([b[l] for b in box_targets])
+                cls_targets_at_level = torch.stack([b[level] for b in cls_targets])
+                box_targets_at_level = torch.stack([b[level] for b in box_targets])
             else:
-                cls_targets_at_level = cls_targets[l]
-                box_targets_at_level = box_targets[l]
+                cls_targets_at_level = cls_targets[level]
+                box_targets_at_level = box_targets[level]
 
             # Onehot encoding for classification labels.
             # NOTE: PyTorch one-hot does not handle -ve entries (no hot) like Tensorflow, so mask them out
@@ -197,7 +197,7 @@ class DetectionLoss(nn.Module):
                 bs, height, width, -1
             )
             cls_loss = _classification_loss(
-                cls_outputs[l].permute(0, 2, 3, 1),
+                cls_outputs[level].permute(0, 2, 3, 1),
                 cls_targets_at_level_oh,
                 num_positives_sum,
                 alpha=self.alpha,
@@ -209,7 +209,7 @@ class DetectionLoss(nn.Module):
 
             box_losses.append(
                 _box_loss(
-                    box_outputs[l].permute(0, 2, 3, 1),
+                    box_outputs[level].permute(0, 2, 3, 1),
                     box_targets_at_level,
                     num_positives_sum,
                     delta=self.delta,
